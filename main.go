@@ -40,6 +40,19 @@ func main() {
 				formatTf(sec, ctx.String("format"))
 			},
 		},
+		cli.Command{
+			Name: "unset",
+			Action: func(ctx *cli.Context) {
+				unset()
+			},
+		},
+		cli.Command{
+			Name:  "ls",
+			Flags: []cli.Flag{},
+			Action: func(ctx *cli.Context) {
+				listProfiles()
+			},
+		},
 	}
 	app.Run(os.Args)
 }
@@ -47,7 +60,7 @@ func main() {
 const ACCESS_KEY_ID = "aws_access_key_id"
 const SECRET_ACCESS_KEY = "aws_secret_access_key"
 
-func loadSection(profile string) ini.Section {
+func loadInifile() ini.File {
 	path, err := homedir.Expand("~/.aws/credentials")
 	if err != nil {
 		log.Fatalf("doesn't exist: %v\n", err)
@@ -61,17 +74,24 @@ func loadSection(profile string) ini.Section {
 			log.Fatalf("%v\n", err)
 		}
 
-		for k, _ := range inifile {
-			if k == profile {
-				sec := inifile[k]
-				if sec[ACCESS_KEY_ID] == "" {
-					log.Fatalf("aws_access_key_id is empty")
-				}
-				if sec[SECRET_ACCESS_KEY] == "" {
-					log.Fatalf("aws_secret_access_key is empty")
-				}
-				return sec
+		return inifile
+	}
+	// Never reach
+	return nil
+}
+
+func loadSection(profile string) ini.Section {
+	inifile := loadInifile()
+	for k, _ := range inifile {
+		if k == profile {
+			sec := inifile[k]
+			if sec[ACCESS_KEY_ID] == "" {
+				log.Fatalf("aws_access_key_id is empty")
 			}
+			if sec[SECRET_ACCESS_KEY] == "" {
+				log.Fatalf("aws_secret_access_key is empty")
+			}
+			return sec
 		}
 	}
 	log.Fatalf("missing %v\n", profile)
@@ -103,8 +123,8 @@ func formatTf(sec ini.Section, format string) {
 
 func formatEnv(sec ini.Section, format string) {
 	templ := `
-AWS_ACCESS_KEY_ID="{{.aws_access_key_id}}"
-AWS_SECRET_ACCESS_KEY="{{.aws_secret_access_key}}"
+export AWS_ACCESS_KEY_ID="{{.aws_access_key_id}}"
+export AWS_SECRET_ACCESS_KEY="{{.aws_secret_access_key}}"
 		`
 
 	formatTempl(sec, templ)
@@ -119,4 +139,19 @@ func formatTempl(sec ini.Section, templ string) {
 	t.Execute(os.Stdout, vals)
 	fmt.Println()
 
+}
+
+func unset() {
+	templ := `
+unset AWS_ACCESS_KEY_ID
+unset AWS_SECRET_ACCESS_KEY
+`
+	fmt.Println(strings.TrimSpace(templ))
+}
+
+func listProfiles() {
+	f := loadInifile()
+	for p, _ := range f {
+		fmt.Println(p)
+	}
 }
