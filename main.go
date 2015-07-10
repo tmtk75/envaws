@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -43,7 +44,7 @@ func main() {
 			Flags: []cli.Flag{},
 			Action: func(ctx *cli.Context) {
 				profile, _ := ctx.ArgFor("profile")
-				sec := loadSection(profile)
+				sec := loadParams(profile)
 				formatEnv(sec, ctx.String("format"))
 			},
 		},
@@ -63,7 +64,7 @@ func main() {
 			},
 			Action: func(ctx *cli.Context) {
 				profile, _ := ctx.ArgFor("profile")
-				sec := loadSection(profile)
+				sec := loadParams(profile)
 				formatTf(sec, ctx.String("format"))
 			},
 		},
@@ -71,11 +72,21 @@ func main() {
 	app.Run(os.Args)
 }
 
+func loadParams(profile string) ini.Section {
+	sec := loadSection(profile)
+	cnf := load("~/.aws/config", "profile "+profile, false)
+	for k, v := range cnf {
+		sec[k] = v
+	}
+	return sec
+}
+
 const ACCESS_KEY_ID = "aws_access_key_id"
 const SECRET_ACCESS_KEY = "aws_secret_access_key"
+const DEFAULT_REGION = "region"
 
-func loadInifile() ini.File {
-	path, err := homedir.Expand("~/.aws/credentials")
+func loadInifile(path string) ini.File {
+	path, err := homedir.Expand(path)
 	if err != nil {
 		log.Fatalf("doesn't exist: %v\n", err)
 	}
@@ -95,15 +106,21 @@ func loadInifile() ini.File {
 }
 
 func loadSection(profile string) ini.Section {
-	inifile := loadInifile()
+	return load("~/.aws/credentials", profile, true)
+}
+
+func load(path, profile string, check bool) ini.Section {
+	inifile := loadInifile(path)
 	for k, _ := range inifile {
 		if k == profile {
 			sec := inifile[k]
-			if sec[ACCESS_KEY_ID] == "" {
-				log.Fatalf("aws_access_key_id is empty")
-			}
-			if sec[SECRET_ACCESS_KEY] == "" {
-				log.Fatalf("aws_secret_access_key is empty")
+			if check {
+				if sec[ACCESS_KEY_ID] == "" {
+					log.Fatalf("aws_access_key_id is empty")
+				}
+				if sec[SECRET_ACCESS_KEY] == "" {
+					log.Fatalf("aws_secret_access_key is empty")
+				}
 			}
 			return sec
 		}
@@ -139,8 +156,8 @@ func formatEnv(sec ini.Section, format string) {
 	templ := `
 export AWS_ACCESS_KEY_ID="{{.aws_access_key_id}}"
 export AWS_SECRET_ACCESS_KEY="{{.aws_secret_access_key}}"
-		`
-
+{{if .aws_region}}export AWS_DEFAULT_REGION="{{.aws_region}}"{{end}}
+`
 	formatTempl(sec, templ)
 }
 
@@ -148,10 +165,12 @@ func formatTempl(sec ini.Section, templ string) {
 	vals := map[string]interface{}{
 		"aws_access_key_id":     sec[ACCESS_KEY_ID],
 		"aws_secret_access_key": sec[SECRET_ACCESS_KEY],
+		"aws_region":            sec[DEFAULT_REGION],
 	}
-	t, _ := template.New("tf").Parse(strings.TrimSpace(templ))
-	t.Execute(os.Stdout, vals)
-	fmt.Println()
+	t, _ := template.New("tf").Parse(templ)
+	s := bytes.NewBuffer([]byte{})
+	t.Execute(s, vals)
+	fmt.Println(strings.TrimSpace(s.String()))
 
 }
 
@@ -160,11 +179,16 @@ func unset() {
 unset AWS_ACCESS_KEY_ID
 unset AWS_SECRET_ACCESS_KEY
 `
+	//unset AWS_DEFAULT_REGION
+	//unset AWS_DEFAULT_OUTPUT
+	//unset AWS_DEFAULT_PROFILE
+	//unset AWS_CONFIG_FILE
+	//unset AWS_SECURITY_TOKEN
 	fmt.Println(strings.TrimSpace(templ))
 }
 
 func listProfiles() {
-	f := loadInifile()
+	f := loadInifile("~/.aws/credentials")
 	for p, _ := range f {
 		fmt.Println(p)
 	}
