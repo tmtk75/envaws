@@ -16,10 +16,29 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "envaws"
 	app.Version = "0.1.0dev"
-	app.Usage = "awscli utils"
+	app.Usage = `AWS access key manager
+	    Help you to export environment variables and unset them easily.
+
+   e.g)
+     To export AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY for default profile
+
+        $ eval $(envaws env default)
+
+     To unset them
+
+        $ eval $(envaws unset)`
 	app.Commands = []cli.Command{
 		cli.Command{
+			Name:  "ls",
+			Usage: "List available profiles in ~/.aws/credentials",
+			Flags: []cli.Flag{},
+			Action: func(ctx *cli.Context) {
+				listProfiles()
+			},
+		},
+		cli.Command{
 			Name:  "env",
+			Usage: "Print keys as environtment variables for profile",
 			Args:  "<profile>",
 			Flags: []cli.Flag{},
 			Action: func(ctx *cli.Context) {
@@ -29,8 +48,16 @@ func main() {
 			},
 		},
 		cli.Command{
-			Name: "tf",
-			Args: "<profile>",
+			Name:  "unset",
+			Usage: "Print commands to unset environtment variables for AWS_*",
+			Action: func(ctx *cli.Context) {
+				unset()
+			},
+		},
+		cli.Command{
+			Name:  "tf",
+			Args:  "<profile>",
+			Usage: "Print keys as terraform variable definition for profile",
 			Flags: []cli.Flag{
 				cli.StringFlag{Name: "format,f", Value: "var", Usage: "option,env,var,export"},
 			},
@@ -38,19 +65,6 @@ func main() {
 				profile, _ := ctx.ArgFor("profile")
 				sec := loadSection(profile)
 				formatTf(sec, ctx.String("format"))
-			},
-		},
-		cli.Command{
-			Name: "unset",
-			Action: func(ctx *cli.Context) {
-				unset()
-			},
-		},
-		cli.Command{
-			Name:  "ls",
-			Flags: []cli.Flag{},
-			Action: func(ctx *cli.Context) {
-				listProfiles()
 			},
 		},
 	}
