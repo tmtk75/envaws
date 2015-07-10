@@ -129,14 +129,17 @@ func load(path, profile string, check bool) ini.Section {
 	return nil
 }
 
-const tf_env = `TF_VAR_aws_access_key="{{.aws_access_key_id}}" TF_VAR_aws_secret_key="{{.aws_secret_access_key}}"`
+const tf_env = `TF_VAR_aws_access_key="{{.aws_access_key_id}}" TF_VAR_aws_secret_key="{{.aws_secret_access_key}}"{{if .aws_region}} TV_VAR_region="{{.aws_region}}"{{end}}`
 const tf_var = `
-aws_access_key = {{.aws_access_key_id}}
-aws_secret_key = {{.aws_secret_access_key}}`
-const tf_option = `-var aws_access_key="{{.aws_access_key_id}}" -var aws_secret_key="{{.aws_secret_access_key}}"`
+aws_access_key = "{{.aws_access_key_id}}"
+aws_secret_key = "{{.aws_secret_access_key}}"
+{{if .aws_region}}aws_region = "{{.aws_region}}"{{end}}
+`
+const tf_option = `-var aws_access_key="{{.aws_access_key_id}}" -var aws_secret_key="{{.aws_secret_access_key}}"{{if .aws_region}} -var region="{{.aws_region}}"{{end}}`
 const tf_export = `
 export TF_VAR_aws_access_key="{{.aws_access_key_id}}"
-export TF_VAR_aws_secret_key="{{.aws_secret_access_key}}"`
+export TF_VAR_aws_secret_key="{{.aws_secret_access_key}}"
+{{if .aws_region}}export TF_VAR_region="{{.aws_region}}"{{end}}`
 
 func formatTf(sec ini.Section, format string) {
 	templ := (map[string]string{
