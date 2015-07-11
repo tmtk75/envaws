@@ -125,8 +125,10 @@ func load(path, profile string, check bool) ini.Section {
 			return sec
 		}
 	}
-	log.Fatalf("missing %v\n", profile)
-	return nil
+	if check {
+		log.Fatalf("missing %v in %v\n", profile, path)
+	}
+	return map[string]string{}
 }
 
 const tf_env = `TF_VAR_aws_access_key="{{.aws_access_key_id}}" TF_VAR_aws_secret_key="{{.aws_secret_access_key}}"{{if .aws_region}} TV_VAR_region="{{.aws_region}}"{{end}}`
