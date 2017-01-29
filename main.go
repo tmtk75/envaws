@@ -6,7 +6,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"text/tabwriter"
 	"text/template"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/tmtk75/cli"
@@ -194,7 +199,17 @@ unset AWS_SECRET_ACCESS_KEY
 
 func listProfiles() {
 	f := loadInifile("~/.aws/credentials")
+	w := new(tabwriter.Writer)
+	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 	for p, _ := range f {
-		fmt.Println(p)
+		os.Setenv("AWS_PROFILE", p)
+		svc := sts.New(session.New(), &aws.Config{})
+		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+		if err != nil {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", "            ", "                     ", p, "")
+		} else {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", *res.Account, *res.UserId, p, *res.Arn)
+		}
+		w.Flush()
 	}
 }
