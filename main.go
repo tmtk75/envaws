@@ -206,10 +206,10 @@ func listProfiles() {
 		svc := sts.New(session.New(), &aws.Config{})
 		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
 		if err != nil {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", "            ", "                     ", p, "")
+			fmt.Fprintf(w, "%v\n", p)
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", *res.Account, *res.UserId, p, *res.Arn)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", p, *res.Account, *res.UserId, *res.Arn)
 		}
-		w.Flush()
 	}
+	w.Flush()
 }
