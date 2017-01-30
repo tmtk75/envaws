@@ -13,16 +13,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
 
+	"github.com/jawher/mow.cli"
 	homedir "github.com/mitchellh/go-homedir"
-	"github.com/tmtk75/cli"
 	"github.com/vaughan0/go-ini"
 )
 
 func main() {
-	app := cli.NewApp()
-	app.Name = "envaws"
-	app.Version = "0.1.0dev"
-	app.Usage = `AWS access key manager
+	desc := `AWS access key manager
 	    Help you to export environment variables and unset them easily.
 
    e.g)
@@ -33,47 +30,39 @@ func main() {
      To unset them
 
         $ eval $(envaws unset)`
-	app.Commands = []cli.Command{
-		cli.Command{
-			Name:  "ls",
-			Usage: "List available profiles in ~/.aws/credentials",
-			Flags: []cli.Flag{},
-			Action: func(ctx *cli.Context) {
-				listProfiles()
-			},
-		},
-		cli.Command{
-			Name:  "env",
-			Usage: "Print keys as environtment variables for profile",
-			Args:  "<profile>",
-			Flags: []cli.Flag{},
-			Action: func(ctx *cli.Context) {
-				profile, _ := ctx.ArgFor("profile")
-				sec := loadParams(profile)
-				formatEnv(sec, ctx.String("format"))
-			},
-		},
-		cli.Command{
-			Name:  "unset",
-			Usage: "Print commands to unset environtment variables for AWS_*",
-			Action: func(ctx *cli.Context) {
-				unset()
-			},
-		},
-		cli.Command{
-			Name:  "tf",
-			Args:  "<profile>",
-			Usage: "Print keys as terraform variable definition for profile",
-			Flags: []cli.Flag{
-				cli.StringFlag{Name: "format,f", Value: "var", Usage: "option,env,var,export"},
-			},
-			Action: func(ctx *cli.Context) {
-				profile, _ := ctx.ArgFor("profile")
-				sec := loadParams(profile)
-				formatTf(sec, ctx.String("format"))
-			},
-		},
-	}
+
+	app := cli.App("envaws", desc)
+	//app.Version = "0.1.0dev"
+
+	app.Command("ls", "List available profiles in ~/.aws/credentials", func(c *cli.Cmd) {
+		f := c.Bool(cli.BoolOpt{Name: "full f", Desc: "Print AccountId, ARN for each profile", Value: false})
+		c.Spec = "[-f]"
+		c.Action = func() {
+			listProfiles(*f)
+		}
+	})
+	app.Command("env", "Print keys as environtment variables for profile", func(c *cli.Cmd) {
+		profile := c.String(cli.StringArg{Name: "PROFILE", Desc: "Profile name"})
+		c.Action = func() {
+			sec := loadParams(*profile)
+			formatEnv(sec, "TBD")
+		}
+	})
+	app.Command("unset", "Print commands to unset environtment variables for AWS_*", func(c *cli.Cmd) {
+		c.Action = func() {
+			unset()
+		}
+	})
+	app.Command("tf", "Print keys as terraform variable definition for profile", func(c *cli.Cmd) {
+		var (
+			profile = c.String(cli.StringArg{Name: "PROFILE", Desc: "Profile name"})
+			format  = c.String(cli.StringOpt{Name: "format f", Desc: "option,env,var,export", Value: "env"})
+		)
+		c.Action = func() {
+			sec := loadParams(*profile)
+			formatTf(sec, *format)
+		}
+	})
 	app.Run(os.Args)
 }
 
@@ -188,25 +177,34 @@ func unset() {
 	templ := `
 unset AWS_ACCESS_KEY_ID
 unset AWS_SECRET_ACCESS_KEY
+unset AWS_SECURITY_TOKEN
+unset AWS_DEFAULT_PROFILE
 `
 	//unset AWS_DEFAULT_REGION
 	//unset AWS_DEFAULT_OUTPUT
-	//unset AWS_DEFAULT_PROFILE
 	//unset AWS_CONFIG_FILE
-	//unset AWS_SECURITY_TOKEN
 	fmt.Println(strings.TrimSpace(templ))
 }
 
-func listProfiles() {
+func listProfiles(full bool) {
 	f := loadInifile("~/.aws/credentials")
+	if !full {
+		for p, _ := range f {
+			fmt.Println(p)
+		}
+		return
+	}
+
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 	for p, _ := range f {
+		os.Setenv("AWS_ACCESS_KEY_ID", "")
+		os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 		os.Setenv("AWS_PROFILE", p)
 		svc := sts.New(session.New(), &aws.Config{})
 		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
 		if err != nil {
-			fmt.Fprintf(w, "%v\n", p)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", p, "", "", "", strings.Replace(err.Error(), "\n", " ", -1))
 		} else {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", p, *res.Account, *res.UserId, *res.Arn)
 		}
