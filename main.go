@@ -12,6 +12,7 @@ import (
 	"text/template"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
@@ -241,10 +242,8 @@ func listProfiles(full bool) {
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
 	for p, _ := range f {
-		os.Setenv("AWS_ACCESS_KEY_ID", "")
-		os.Setenv("AWS_SECRET_ACCESS_KEY", "")
-		os.Setenv("AWS_PROFILE", p)
-		svc := sts.New(session.New(), &aws.Config{})
+		cred := credentials.NewSharedCredentials("", p)
+		svc := sts.New(session.New(), &aws.Config{Credentials: cred})
 		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
 		if err != nil {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", p, "", "", "", strings.Replace(err.Error(), "\n", " ", -1))
