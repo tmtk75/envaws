@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"sort"
 	"strings"
 	"text/tabwriter"
 	"text/template"
@@ -232,23 +233,29 @@ unset AWS_DEFAULT_PROFILE
 
 func listProfiles(full bool) {
 	f := loadInifile("~/.aws/credentials")
+	keys := make([]string, 0)
+	for p, _ := range f {
+		keys = append(keys, p)
+	}
+	sort.Strings(keys)
+
 	if !full {
-		for p, _ := range f {
-			fmt.Println(p)
+		for _, k := range keys {
+			fmt.Println(k)
 		}
 		return
 	}
 
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
-	for p, _ := range f {
-		cred := credentials.NewSharedCredentials("", p)
+	for _, k := range keys {
+		cred := credentials.NewSharedCredentials("", k)
 		svc := sts.New(session.New(), &aws.Config{Credentials: cred})
 		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
 		if err != nil {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", p, "", "", "", strings.Replace(err.Error(), "\n", " ", -1))
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", k, "", "", "", strings.Replace(err.Error(), "\n", " ", -1))
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", p, *res.Account, *res.UserId, *res.Arn)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", k, *res.Account, *res.UserId, *res.Arn)
 		}
 	}
 	w.Flush()
