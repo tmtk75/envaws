@@ -9,6 +9,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	"text/template"
 
@@ -231,6 +232,12 @@ unset AWS_DEFAULT_PROFILE
 	fmt.Println(strings.TrimSpace(templ))
 }
 
+type out struct {
+	name string
+	out  *sts.GetCallerIdentityOutput
+	err  error
+}
+
 func listProfiles(full bool) {
 	f := loadInifile("~/.aws/credentials")
 	keys := make([]string, 0)
@@ -246,16 +253,28 @@ func listProfiles(full bool) {
 		return
 	}
 
+	slots := make([]*out, len(keys))
+	var wg sync.WaitGroup
+	wg.Add(len(keys))
+	for i, k := range keys {
+		go func(i int, name string) {
+			cred := credentials.NewSharedCredentials("", name)
+			svc := sts.New(session.New(), &aws.Config{Credentials: cred})
+			res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+			slots[i] = &out{name: name, out: res, err: err}
+			wg.Done()
+		}(i, k)
+	}
+	wg.Wait()
+
 	w := new(tabwriter.Writer)
 	w.Init(os.Stdout, 0, 8, 0, '\t', 0)
-	for _, k := range keys {
-		cred := credentials.NewSharedCredentials("", k)
-		svc := sts.New(session.New(), &aws.Config{Credentials: cred})
-		res, err := svc.GetCallerIdentity(&sts.GetCallerIdentityInput{})
-		if err != nil {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", k, "", "", "", strings.Replace(err.Error(), "\n", " ", -1))
+	for _, r := range slots {
+		if r.err != nil {
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", r.name, "", "", "", strings.Replace(r.err.Error(), "\n", " ", -1))
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", k, *res.Account, *res.UserId, *res.Arn)
+			res := r.out
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", r.name, *res.Account, *res.UserId, *res.Arn)
 		}
 	}
 	w.Flush()
