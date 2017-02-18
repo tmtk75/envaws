@@ -1,0 +1,57 @@
+{
+    "memo": "",
+    "projects": [
+        {
+            "name": "github.com/aws/aws-sdk-go",
+            "version": "v1.4.19",
+            "revision": "1a651d9028d1203f4a0ba9fee91b207536cd4ca2",
+            "packages": [
+                "aws",
+                "aws/credentials",
+                "aws/session",
+                "service/iam",
+                "service/sts"
+            ]
+        },
+        {
+            "name": "github.com/go-ini/ini",
+            "branch": "master",
+            "revision": "03e0e7d51a13a91c765d8d0161246bc14a38001a",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/jawher/mow.cli",
+            "branch": "master",
+            "revision": "0de8a769b5ad3ab01a480561cfbd4b220240311f",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/jmespath/go-jmespath",
+            "branch": "master",
+            "revision": "3433f3ea46d9f8019119e7dd41274e112a2359a9",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/mitchellh/go-homedir",
+            "branch": "master",
+            "revision": "756f7b183b7ab78acdbbee5c7f392838ed459dda",
+            "packages": [
+                "."
+            ]
+        },
+        {
+            "name": "github.com/vaughan0/go-ini",
+            "branch": "master",
+            "revision": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1",
+            "packages": [
+                "."
+            ]
+        }
+    ]
+}
