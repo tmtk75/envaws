@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/jawher/mow.cli"
@@ -58,11 +61,51 @@ func main() {
 			profile = c.String(cli.StringArg{Name: "PROFILE", Desc: "Profile name"})
 			format  = c.String(cli.StringOpt{Name: "format f", Desc: "option,env,var,export", Value: "env"})
 		)
+		c.Spec = "PROFILE"
 		c.Action = func() {
 			sec := loadParams(*profile)
 			formatTf(sec, *format)
 		}
 	})
+	app.Command("role", "", func(c *cli.Cmd) {
+		c.Command("ls", "", func(c *cli.Cmd) {
+			f := c.Bool(cli.BoolOpt{Name: "full f", Desc: "Print RoleId, ARN for each profile", Value: false})
+			c.Action = func() {
+				svc := iam.New(session.New(), &aws.Config{})
+				res, err := svc.ListRoles(nil)
+				if err != nil {
+					log.Fatalln(err)
+				}
+
+				w := new(tabwriter.Writer)
+				w.Init(os.Stdout, 0, 8, 0, '\t', 0)
+				for _, r := range res.Roles {
+					if *f {
+						fmt.Fprintf(w, "%v\t%v\t%v\n", *r.RoleName, *r.RoleId, *r.Arn)
+					} else {
+						fmt.Fprintf(w, "%v\n", *r.RoleName)
+					}
+				}
+				w.Flush()
+			}
+		})
+		c.Command("get", "", func(c *cli.Cmd) {
+			rolename := c.String(cli.StringArg{Name: "ROLE_NAME", Desc: "Role name"})
+			c.Action = func() {
+				svc := iam.New(session.New(), &aws.Config{})
+				res, err := svc.GetRole(&iam.GetRoleInput{RoleName: rolename})
+				if err != nil {
+					log.Fatalln(err)
+				}
+				b, _ := json.MarshalIndent(res, "", "  ")
+
+				fmt.Println(string(b))
+				d, _ := url.QueryUnescape(*res.Role.AssumeRolePolicyDocument)
+				fmt.Println(d)
+			}
+		})
+	})
+
 	app.Run(os.Args)
 }
 
